@@ -5,6 +5,16 @@
     "description": "command line tool to run ONE drivers in customized order"
   },
   {
+    "name" : "[dayo]",
+    "body": [
+      {
+        "attr_name" : "My name",
+        "attr_desc" : "DAYO DAYO"
+      }
+    ],
+    "description" : "This is DAYO:-D"
+  },
+  {
     "name" : "[onecc]",
     "body": [],
     "description": "Run ONE driver via several commands or configuration file"
