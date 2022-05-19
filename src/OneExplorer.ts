@@ -107,6 +107,95 @@ class Node {
   }
 }
 
+/**
+ * Create `ParsedConfig` for the given uri, when it satisfies:
+ * (1) the uri can be parsed as ini object
+ * (2) it contains a base model (one-import-*)
+ * (3) the base model exists in the filesystem
+ * @param uri
+ * @returns
+ */
+function parseConfig(uri: vscode.Uri):
+    {baseModels: vscode.Uri[]|null, derivedModels: vscode.Uri[]|null} {
+  // Parse the ini file
+  const iniObj = readIni(uri.fsPath);
+  if (iniObj === null) {
+    console.error(`Cannot open ${uri.fsPath}`);
+    return {baseModels: null, derivedModels: null};
+  }
+
+  /**
+   * Find base models written in the ini object and return the absolute path.
+   *
+   * NOTE
+   * onecc doesn't support a configuration with multiple base models.
+   * Explorer shows the config node below multiple base models though, while showing error on
+   * console.
+   */
+  const findBaseModels = (iniObj: object): vscode.Uri[]|null => {
+    const baseModels = ['tflite','pb','onnx']
+    .filter(ext=>iniObj[`one-import-${ext}` as keyof typeof iniObj] ?.['input_path'] !== undefined)
+    .map(ext => iniObj[`one-import-${ext}` as keyof typeof iniObj] ?.['input_path'])
+    .map(relpath=>path.join(path.dirname(uri.fsPath),relpath))
+    .map(abspath=>vscode.Uri.file(abspath));
+
+    if (baseModels.length > 1) {
+      // TODO Display this config with warning mark on the icon to notify user that it contains an
+      // error
+      console.warn(`Warning: There are multiple input models in the configuration. (path: ${uri})`);
+    }
+
+    if (baseModels.length === 0) {
+      // TODO Display orphan configs somewhere
+      console.warn(`Warning: There is no input model in the configuration. (path: ${uri})`);
+    }
+
+    return baseModels;
+  };
+
+  /**
+   * Find derived models written in the ini object and return the absolute path.
+   */
+  const findDerivedModels = (iniObj: object): vscode.Uri[]|null => {
+    const derivedModelLocator = [
+      {section: 'one-import-tf', key: 'output_path'},
+      {section: 'one-import-tflite', key: 'output_path'},
+      {section: 'one-import-onnx', key: 'output_path'},
+      {section: 'one-import-bcq', key: 'output_path'},
+      {section: 'one-optimize', key: 'input_path'},
+      {section: 'one-optimize', key: 'output_path'},
+      {section: 'one-quantize', key: 'input_path'},
+      {section: 'one-quantize', key: 'output_path'},
+      {
+        section: 'one-codegen',
+        key: 'command',
+        filt: (str: string): string[] => {
+          return str.split(' ').filter(
+              e => path.extname(e) === '.tvn' || path.extname(e) === '.circle');
+        }
+      },
+    ];
+
+    let derivedModels: string[] = [];
+    for (let loc of derivedModelLocator) {
+      let confSection = iniObj[loc.section as keyof typeof iniObj];
+      let confKey = confSection ?.[loc.key as keyof typeof iniObj];
+      if (confKey) {
+        const greppedModels = loc.filt ? loc.filt(confKey) : [confKey];
+        for (let model of greppedModels) {
+          if (derivedModels.includes(model) === false) {
+            derivedModels.push(model);
+          }
+        }
+      }
+    }
+
+    return derivedModels.map(relpath => path.join(path.dirname(uri.fsPath), relpath))
+        .map(abspath => vscode.Uri.file(abspath));
+  };
+
+  return {baseModels: findBaseModels(iniObj), derivedModels: findDerivedModels(iniObj)};
+}
 
 export class OneNode extends vscode.TreeItem {
   constructor(
@@ -289,65 +378,6 @@ input_path=${modelName}.${extName}
     }
   }
 
-  // TODO(dayo) extract file-relative functions as another module
-  private parseInputPath = (configPath: string, modelPath: string): string|undefined => {
-    const config = readIni(configPath);
-    const ext = path.extname(modelPath).slice(1);
-
-    if (ext === undefined || config === null) {
-      return undefined;
-    }
-
-    return config[`one-import-${ext}` as keyof typeof config] ?.['input_path'];
-  };
-
-  // TODO(dayo) extract file-relative functions as another module
-  private grepTargetInCommand = (str: string): string[] => {
-    return str.split(' ').filter(e => path.extname(e) === '.tvn' || path.extname(e) === '.circle');
-  };
-
-  // TODO(dayo) extract file-relative functions as another module
-  private grepAll = (str: string): string[] => {
-    return [str];
-  };
-
-  // TODO(dayo) extract file-relative functions as another module
-  private parseIntermediates = (configPath: string): string[] => {
-    const config = readIni(configPath);
-
-    if (config === null) {
-      return [];
-    }
-
-    const targetLocator = [
-      {section: 'one-import-tf', key: 'output_path', grepper: this.grepAll},
-      {section: 'one-import-tflite', key: 'output_path', grepper: this.grepAll},
-      {section: 'one-import-onnx', key: 'output_path', grepper: this.grepAll},
-      {section: 'one-import-bcq', key: 'output_path', grepper: this.grepAll},
-      {section: 'one-optimize', key: 'input_path', grepper: this.grepAll},
-      {section: 'one-optimize', key: 'output_path', grepper: this.grepAll},
-      {section: 'one-quantize', key: 'input_path', grepper: this.grepAll},
-      {section: 'one-quantize', key: 'output_path', grepper: this.grepAll},
-      {section: 'one-codegen', key: 'command', grepper: this.grepTargetInCommand},
-    ];
-
-    let intermediates: string[] = [];
-    for (let loc of targetLocator) {
-      let confSection = config[loc.section as keyof typeof config];
-      let confKey = confSection ?.[loc.key as keyof typeof config];
-      if (confKey) {
-        const targets = loc.grepper(confKey);
-        for (let target of targets) {
-          if (intermediates.includes(target) === false) {
-            intermediates.push(target);
-          }
-        }
-      }
-    }
-
-    return intermediates;
-  };
-
   /**
    * compare paths by normalization
    * NOTE that '~'(home) is not supported
@@ -373,39 +403,15 @@ input_path=${modelName}.${extName}
       const fstat = fs.statSync(fpath);
 
       if (fstat.isFile() && fname.endsWith('.cfg')) {
-        const parsedInputPath = this.parseInputPath(fpath, node.path);
-        if (parsedInputPath) {
-          const fullInputPath = path.join(node.parent, parsedInputPath);
-          if (this.comparePath(fullInputPath, node.path)) {
+        const {baseModels, derivedModels} = parseConfig(vscode.Uri.file(fpath));
+
+        for (const baseModel in baseModels) {
+          if (this.comparePath(baseModel, node.path)) {
             const pairNode = new Node(NodeType.config, [], vscode.Uri.file(fpath));
-            this.searchChildModels(pairNode);
+            derivedModels ?.forEach(
+                               derivedModel => pairNode.childNodes.push(
+                                   new Node(NodeType.derivedModel, [], derivedModel)));
             node.childNodes.push(pairNode);
-          }
-        }
-      }
-    }
-  }
-
-  /**
-   * Search specified intermediate model files (a.k.a NodeType.derivedModel) in the same directory
-   */
-  private searchChildModels(node: Node) {
-    console.assert(node.type === NodeType.config);
-    console.log('searchChildModels');
-    const files = fs.readdirSync(node.parent);
-
-    for (const fname of files) {
-      const fpath = path.join(node.parent, fname);
-      const fstat = fs.statSync(fpath);
-
-      // TODO(dayo) Get .tvn file extension from backend
-      if (fstat.isFile() && (fname.endsWith('.circle') || fname.endsWith('.tvn'))) {
-        const intermediates = this.parseIntermediates(node.path);
-        for (let intermediate of intermediates) {
-          const parsedPath = path.join(node.parent, intermediate);
-          if (this.comparePath(parsedPath, fpath)) {
-            const child = new Node(NodeType.derivedModel, [], vscode.Uri.file(fpath));
-            node.childNodes.push(child);
             break;
           }
         }
