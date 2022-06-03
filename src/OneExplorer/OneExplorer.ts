@@ -460,8 +460,9 @@ export class OneExplorer {
   constructor(context: vscode.ExtensionContext) {
     // NOTE: Fix `obtainWorksapceRoot` if non-null assertion is false
     const oneTreeDataProvider = new OneTreeDataProvider(this.workspaceRoot!);
-    context.subscriptions.push(
-        vscode.window.registerTreeDataProvider('OneExplorerView', oneTreeDataProvider));
+
+    const view = vscode.window.createTreeView('OneExplorerView', { treeDataProvider: oneTreeDataProvider, showCollapseAll: true, canSelectMany: true});
+    context.subscriptions.push(view);
 
     const subscribeCommands = (disposals: vscode.Disposable[]) => {
       for (const disposal of disposals) {
