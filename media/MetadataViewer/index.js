@@ -37,6 +37,10 @@ this.window.onscroll = function () {
   }
 };
 
+function _toggleUnfold(x) {
+  x.classList.toggle("codicon-unfold");
+}
+
 //메타데이터 정보를 업데이트
 function updateMetadataInfo(metadata) {
   //메인 키를 꺼낸다.(파일 이름)
@@ -62,7 +66,12 @@ function updateMetadataInfo(metadata) {
       const showButton = document.createElement('div');
       showButton.classList.add('view-item-show-button');
       showButton.setAttribute('id', 'operations-view-item-show-button');
-      showButton.innerText = '-';
+
+      const icon = document.createElement('i');
+      icon.classList.add('codicon');
+      icon.classList.add('codicon-fold');
+      icon.setAttribute('onclick', '_toggleUnfold(this);');
+      showButton.append(icon);
 
       //헤더와 showButton을 담을 헤더박스 생성
       const viewItemHeaderBox = document.createElement('div');
@@ -259,10 +268,8 @@ function showButtonClickEvent() {
       }
 
       if(contentBox?.style.display === 'block' || contentBox.style.display === ''){
-        isSubButton ? button.innerText = '[+]' : button.innerText = '+';
         contentBox.style.display = 'none';
       } else {
-        isSubButton ? button.innerText = '[-]' : button.innerText = '-';
         contentBox.style.display = 'block';
       }
     });

@@ -88,15 +88,16 @@ export class MetadataViewer{
     const nonce = getNonce();
     const jsIndex = panel.webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "MetadataViewer", "index.js"));
     const cssIndex = panel.webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "MetadataViewer", "index.css"));
-
+    const codiconsUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'node_modules', '@vscode/codicons', 'dist', 'codicon.css'));
     const htmlUri = vscode.Uri.joinPath(extensionUri, "media", "MetadataViewer", "index.html");
 
     let html = Buffer.from(await vscode.workspace.fs.readFile(htmlUri)).toString();
     html = html.replace(/\${nonce}/g, `${nonce}`);
     html = html.replace(/\${index.css}/g, `${cssIndex}`);
     html = html.replace(/\${index.js}/g, `${jsIndex}`);
+    html = html.replace(/\${codicon.css}/g, `${codiconsUri}`);
     panel.webview.html = html;
-    
+
   }
 
   public owner(panel: vscode.WebviewPanel) {
