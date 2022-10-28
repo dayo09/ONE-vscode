@@ -425,6 +425,12 @@ export class OneTreeDataProvider implements vscode.TreeDataProvider<Node> {
       new vscode.EventEmitter<Node|undefined|void>();
   readonly onDidChangeTreeData: vscode.Event<Node|undefined|void> = this._onDidChangeTreeData.event;
 
+  /**
+   * Fires when a tracked file is deleted.
+   */
+  private _onDidDeleteFile: vscode.EventEmitter<Node> = new vscode.EventEmitter<Node>();
+  private onDidDeleteFile: vscode.Event<Node> = this._onDidDeleteFile.event;
+
   private fileWatcher = vscode.workspace.createFileSystemWatcher(`**/*`);
 
   private _tree: DirectoryNode[]|undefined;
@@ -454,40 +460,54 @@ export class OneTreeDataProvider implements vscode.TreeDataProvider<Node> {
         // TODO Handle by each node types
         provider.refresh();
       }),
-      provider.fileWatcher.onDidDelete((uri: vscode.Uri) => {
-        const node = provider._nodeMap.get(uri.fsPath);
-
-        if (!node) {
-          return;
-        }
-
-        if (node.type === NodeType.directory || !node.parent) {
+      vscode.workspace.onDidDeleteFiles((e) => {
+        e.files.forEach(file => {
+          const node = provider._nodeMap.get(file.fsPath);
+          if (node) {
+            provider._onDidDeleteFile.fire(node);
+          }
+        });
+      }),
+      provider.onDidDeleteFile(node => {
+        if (!node.parent) {
           provider.refresh();
           return;
         }
 
-        const deleteRecursively = (node: Node) => {
-          if (node.getChildren().length > 0) {
-            node.getChildren().forEach(child => deleteRecursively(child));
+        switch (node.type) {
+          case NodeType.directory: {
+            // TODO Revisit this
+            provider.refresh();
+            break;
           }
-          provider._nodeMap.delete(node.path);
+          case NodeType.baseModel:
+          case NodeType.config:
+          case NodeType.product: {
+            const deleteRecursively = (node: Node) => {
+              if (node.getChildren().length > 0) {
+                node.getChildren().forEach(child => deleteRecursively(child));
+              }
+              provider._nodeMap.delete(node.path);
 
-          switch (node.type) {
-            case NodeType.baseModel:
-              OneStorage.resetBaseModel(node.path);
-              break;
-            case NodeType.config:
-              OneStorage.resetConfig(node.path);
-              break;
-            default:
-              break;
+              switch (node.type) {
+                case NodeType.baseModel:
+                  OneStorage.resetBaseModel(node.path);
+                  break;
+                case NodeType.config:
+                  OneStorage.resetConfig(node.path);
+                  break;
+                default:
+                  break;
+              }
+            };
+            deleteRecursively(node);
+
+            node.parent!.resetChildren();
+            node.parent!.getChildren();
+            provider.refresh(node.parent);
+            break;
           }
-        };
-
-        deleteRecursively(node);
-        node.parent.resetChildren();
-        node.parent.getChildren();
-        provider.refresh(node.parent);
+        }
       }),
       vscode.workspace.onDidChangeWorkspaceFolders(() => {
         provider._workspaceRoots = obtainWorkspaceRoots().map(root => vscode.Uri.file(root));
@@ -529,12 +549,11 @@ export class OneTreeDataProvider implements vscode.TreeDataProvider<Node> {
     ];
 
     if (provider.isLocal) {
-      registrations = [
-        ...[vscode.commands.registerCommand(
-                'one.explorer.openContainingFolder',
-                (node: Node) => provider.openContainingFolder(node)),
-      ]
-      ];
+      registrations = [...registrations, ...[vscode.commands.registerCommand(
+          'one.explorer.openContainingFolder',
+          (node: Node) => provider.openContainingFolder(node)),
+        // Add more local-only commands
+      ]];
     } else {
       vscode.commands.executeCommand('setContext', 'one:extensionKind', 'Workspace');
     }
@@ -784,7 +803,10 @@ export class OneTreeDataProvider implements vscode.TreeDataProvider<Node> {
         .then(ans => {
           if (ans === approval) {
             Logger.info('OneExplorer', `Delete '${node.name}'.`);
-            vscode.workspace.fs.delete(node.uri, {recursive: recursive, useTrash: useTrash});
+
+            const edit = new vscode.WorkspaceEdit();
+            edit.deleteFile(node.uri, {recursive: recursive, ignoreIfNotExists: true});
+            vscode.workspace.applyEdit(edit);
           }
         });
   }
