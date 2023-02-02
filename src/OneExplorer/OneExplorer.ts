@@ -559,6 +559,26 @@ export class OneTreeDataProvider implements vscode.TreeDataProvider<Node> {
       vscode.commands.registerCommand("one.explorer.runCfg", (node: Node) => {
         vscode.commands.executeCommand("one.toolchain.runCfg", node.uri.fsPath);
       }),
+      vscode.commands.registerCommand(
+        "one.explorer.runSingleSelectedCfg",
+        () => {
+          let selectedCfg = provider.getSelectedCfg();
+          if (selectedCfg && selectedCfg.length === 1) {
+            vscode.commands.executeCommand(
+              "one.toolchain.runCfg",
+              selectedCfg[0].uri.fsPath
+            );
+          } else if (!selectedCfg || selectedCfg.length === 0) {
+            // TODO: handle for none selection
+            vscode.window.showErrorMessage("No selected cfg file to run.");
+          } else if (selectedCfg.length !== 1) {
+            // TODO: handle for multiple selection
+            vscode.window.showErrorMessage(
+              "No single selected cfg file to run."
+            );
+          }
+        }
+      ),
       vscode.commands.registerCommand("one.explorer.delete", (node: Node) =>
         provider.delete(node)
       ),
@@ -947,6 +967,25 @@ input_path=${modelName}.${extName}
           }
         });
       });
+  }
+
+  /**
+   * This function returns selected config items
+   * @returns selected config items
+   */
+  private getSelectedCfg(): Node[] | undefined {
+    if (this._treeView?.selection === undefined) {
+      return undefined;
+    }
+
+    const configs: Node[] = [];
+    for (var node of this._treeView!.selection) {
+      if (node.type === NodeType.config) {
+        configs.push(node);
+      }
+    }
+
+    return configs;
   }
 
   /**
