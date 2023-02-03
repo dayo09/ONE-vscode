@@ -255,7 +255,8 @@
     "keybindings": [
       {
           "command": "one.explorer.runSingleSelectedCfg",
-          "key": "ctrl+f5"
+          "key": "ctrl+f5",
+          "when": "OneExplorerView.active && one.explorer:hasSingleSelectedCfg"
       }
     ],
     "menus": {

@@ -481,6 +481,7 @@ export class OneTreeDataProvider implements vscode.TreeDataProvider<Node> {
   private _workspaceRoots: vscode.Uri[] = [];
 
   public static didHideExtra: boolean = false;
+  public static hasSingleSelectedCfg: boolean = false;
 
   public static register(context: vscode.ExtensionContext) {
     const provider = new OneTreeDataProvider(context.extension.extensionKind);
@@ -515,6 +516,11 @@ export class OneTreeDataProvider implements vscode.TreeDataProvider<Node> {
         provider.refresh();
       }),
       provider._treeView,
+      provider._treeView.onDidChangeSelection(e=>{
+        OneTreeDataProvider.hasSingleSelectedCfg = (e.selection.length === 1 && e.selection[0].type === NodeType.config);
+        console.log('one.explorer:hasSingleSelectedCfg: ' + OneTreeDataProvider.hasSingleSelectedCfg);
+        vscode.commands.executeCommand('setContext', 'one.explorer:hasSingleSelectedCfg', OneTreeDataProvider.hasSingleSelectedCfg);
+      }),
       vscode.commands.registerCommand(
         "one.explorer.revealInOneExplorer",
         (path: string) => {
@@ -619,6 +625,11 @@ export class OneTreeDataProvider implements vscode.TreeDataProvider<Node> {
       "setContext",
       "one.explorer:didHideExtra",
       OneTreeDataProvider.didHideExtra
+    );
+    vscode.commands.executeCommand(
+      "setContext",
+      "one.explorer:hasSingleSelectedCfg",
+      OneTreeDataProvider.hasSingleSelectedCfg
     );
   }
 
