@@ -15,7 +15,7 @@
  */
 
 import * as vscode from "vscode";
-
+import * as fs from "fs";
 import { backendRegistrationApi } from "./Backend/API";
 import { CfgEditorPanel } from "./CfgEditor/CfgEditorPanel";
 import { CircleEditorProvider } from "./CircleEditor/CircleEditorProvider";
@@ -81,6 +81,40 @@ export function activate(context: vscode.ExtensionContext) {
 
   MPQEditorProvider.register(context);
   MPQSelectionPanel.register(context);
+
+  console.time("Promise statSync");
+  console.timeLog("Promise statSync", "start")
+
+  new Promise((resolve, reject) => {
+    fs.statSync("/home/dayo/git/ONE-vscode/res/modelDir/truediv/model.cfg")
+    resolve("DONE")
+  }).then(() => {
+    // 9.928955078125 ms
+    console.timeLog("Promise statSync", "end")
+  })
+
+
+  console.time("vscode.workspace.fs");
+  console.timeLog("vscode.workspace.fs", "start");
+
+  vscode.workspace.fs
+    .stat(
+      vscode.Uri.file(
+        "/home/dayo/git/ONE-vscode/res/modelDir/truediv/model.cfg"
+      )
+    )
+    .then(
+      () => {
+        // 1.721s
+        console.timeLog("vscode.workspace.fs", "end");
+      },
+      (error) => console.log(error)
+    );
+
+  console.time("statSync");
+  console.timeLog("statSync", "start");
+  fs.statSync("/home/dayo/git/ONE-vscode/res/modelDir/truediv/model.cfg")
+  console.timeLog("statSync", "end"); // 0.6201171875
 
   // returning backend registration function that will be called by backend extensions
   return backendRegistrationApi();
