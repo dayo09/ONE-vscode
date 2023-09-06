@@ -23,6 +23,7 @@ import { Backend } from "../Backend";
 import { Command } from "../Command";
 import { Compiler } from "../Compiler";
 import { Executor } from "../Executor";
+import { Explorer } from "../Explorer";
 import { PackageInfo, ToolchainInfo, Toolchains } from "../Toolchain";
 import {
   DebianArch,
@@ -267,6 +268,10 @@ class OneToolchain implements Backend {
 
   name(): string {
     return this.backendName;
+  }
+
+  explorer(): Explorer | undefined {
+    return undefined;
   }
 
   compiler(): Compiler | undefined {

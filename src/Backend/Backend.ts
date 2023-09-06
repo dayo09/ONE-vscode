@@ -16,6 +16,7 @@
 
 import { Compiler } from "./Compiler";
 import { Executor } from "./Executor";
+import { Explorer } from "./Explorer";
 
 /**
  * This file defines common API exposed by backend extension.
@@ -32,6 +33,8 @@ import { Executor } from "./Executor";
 export interface Backend {
   // backend's name. this doesn't mean the name of the toolchain
   name(): string;
+
+  explorer(): Explorer | undefined;
 
   // compiler specs by being filled by impl
   compiler(): Compiler | undefined;

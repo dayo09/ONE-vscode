@@ -20,6 +20,7 @@ import { Backend } from "./Backend";
 import { gToolchainEnvMap, ToolchainEnv } from "../Toolchain/ToolchainEnv";
 import { Logger } from "../Utils/Logger";
 import { Executor } from "./Executor";
+import { Explorer } from "./Explorer";
 import { OneToolchain } from "./One/OneToolchain";
 
 /**
@@ -34,6 +35,8 @@ interface BackendMap {
 let globalBackendMap: BackendMap = {};
 // List of Executor extensions registered
 let globalExecutorArray: Executor[] = [];
+// List of Explorer extensions registered
+let globalExplorerArray: Explorer[] = [];
 
 function backendRegistrationApi() {
   const logTag = "backendRegistrationApi";
@@ -50,6 +53,10 @@ function backendRegistrationApi() {
       if (executor) {
         globalExecutorArray.push(executor);
       }
+      const explorer = backend.explorer();
+      if (explorer) {
+        globalExplorerArray.push(explorer);
+      }
       Logger.info(
         logTag,
         "Backend",
@@ -61,6 +68,7 @@ function backendRegistrationApi() {
       // TODO: Consider better way to refresh toolchainView after backend's registration.
       vscode.commands.executeCommand("one.toolchain.refresh");
       vscode.commands.executeCommand("one.device.refresh");
+      vscode.commands.executeCommand("one.explorer.refresh");
     },
     registerExecutor(executor: Executor) {
       globalExecutorArray.push(executor);

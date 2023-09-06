@@ -22,6 +22,7 @@ import {
   globalExecutorArray,
 } from "../../Backend/API";
 import { Backend } from "../../Backend/Backend";
+import { Explorer, ExplorerBase } from "../../Backend/Explorer";
 import { Compiler, CompilerBase } from "../../Backend/Compiler";
 import { Executor, ExecutorBase } from "../../Backend/Executor";
 import { OneToolchain } from "../../Backend/One/OneToolchain";
@@ -37,6 +38,10 @@ class BackendMockup implements Backend {
   }
   compiler(): Compiler | undefined {
     return new CompilerBase();
+  }
+
+  explorer(): Explorer | undefined {
+    return new ExplorerBase();
   }
 
   executor(): Executor | undefined {
