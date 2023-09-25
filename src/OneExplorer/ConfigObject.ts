@@ -23,19 +23,23 @@ import * as vscode from "vscode";
 import { RealPath } from "../Utils/Helpers";
 import { Logger } from "../Utils/Logger";
 
-import { Artifact, Locator, LocatorRunner } from "./ArtifactLocator";
+import { Artifact } from "./ArtifactLocator";
+import { OneCfg, OneConfigSetting } from "./ConfigSettings/OneConfigSetting";
+import { ConfigSetting } from "./ConfigSetting";
 
-type Cfg = {
-  "one-import-tflite": CfgOneImportTflite;
-  "one-import-onnx": CfgOneImportOnnx;
-  "one-import-tf": CfgOneImportTf;
-};
+/**
+ * Type for rawObj.
+ * Expand for additional Backend's section value
+ */
+type Cfg = OneCfg;
 type CfgKeys = keyof Cfg;
 
-// TODO Update
-type CfgOneImportTflite = any;
-type CfgOneImportOnnx = any;
-type CfgOneImportTf = any;
+/**
+ * Enum for what type of ConfigSetting that ConfigObject use
+ */
+enum CfgType {
+  one,
+}
 
 /**
  * @brief A helper class to get parsed artifacts (baseModels, products)
@@ -65,6 +69,11 @@ export class ConfigObj {
    * a parsed config object
    */
   obj: { baseModels: Artifact[]; products: Artifact[] };
+
+  /**
+   * type of config setting
+   */
+  configType: CfgType;
 
   get getBaseModels() {
     return this.obj.baseModels;
@@ -112,12 +121,31 @@ export class ConfigObj {
     return found ? true : false;
   }
 
+  /**
+   * @brief getter for config setting
+   */
+  public get configSetting(): ConfigSetting {
+    let configSetting: ConfigSetting;
+    switch (this.configType) {
+      case CfgType.one:
+      default:
+        configSetting = new OneConfigSetting();
+    }
+    configSetting.init();
+
+    return configSetting;
+  }
+
   private constructor(uri: vscode.Uri, rawObj: Cfg) {
     this.uri = uri;
     this.rawObj = rawObj;
+    this.configType = CfgType.one;
+
+    // TODO: separate to init()
+    const configSetting = this.configSetting;
     this.obj = {
-      baseModels: ConfigObj.parseBaseModels(uri.fsPath, rawObj),
-      products: ConfigObj.parseProducts(uri.fsPath, rawObj),
+      baseModels: configSetting.parseBaseModels(uri.fsPath, rawObj),
+      products: configSetting.parseProducts(uri.fsPath, rawObj),
     };
   }
 
@@ -163,11 +191,7 @@ export class ConfigObj {
   ): Thenable<void> {
     const getSection = (name: string) => {
       const ext = path.extname(name);
-      const sections = {
-        ".pb": "one-import-tf",
-        ".tflite": "one-import-tflite",
-        ".onnx": "one-import-onnx",
-      };
+      const sections = this.configSetting.sections;
 
       return sections[ext as keyof typeof sections];
     };
@@ -176,6 +200,7 @@ export class ConfigObj {
     const kSection: CfgKeys = section as keyof Cfg;
 
     if (
+      this.rawObj[kSection] &&
       this.rawObj[kSection].input_path &&
       this.getFullPath(this.rawObj[kSection].input_path) === oldpath
     ) {
